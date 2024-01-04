@@ -1,0 +1,7 @@
+# python packages to install, one per line
+jupyterlab==4.0.8
+ipywidgets
+
+milvus[client]==2.3.2
+
+gradio==4.2.0

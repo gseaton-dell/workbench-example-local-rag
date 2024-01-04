@@ -1,0 +1,3 @@
+# apt packages to install should be listed one per line
+libgl1
+libglib2.0-0

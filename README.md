@@ -26,7 +26,7 @@ You will need to have your Hugging Face API Key ready - since certain models we 
 If you have NVIDIA AI Workbench already installed, you can open this Project in AI Workbench on your choice of machine by:
 
 ### On Desktop
-Fork this Project to your own Github namespace and copy the clone link. Open the Desktop app and enter your location of choice. Select "Clone Project" and enter the clone link. Wait for the build to complete. 
+Fork this Project to your own Github namespace and copy the clone link. Open the Desktop app and select your location of choice. Select "Clone Project" and enter the clone link. Wait for the build to complete. 
 
 ### On CLI
 Get started in the CLI by: 

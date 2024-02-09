@@ -11,25 +11,24 @@ from langchain.llms import HuggingFaceTextGenInference
 
 
 from langchain.text_splitter import SentenceTransformersTokenTextSplitter
+from llama_index.embeddings import LangchainEmbedding
 from llama_index import (
-    LangchainEmbedding,
     Prompt,
     ServiceContext,
     VectorStoreIndex,
     download_loader,
     set_global_service_context,
 )
-from llama_index.indices.postprocessor.types import BaseNodePostprocessor
+from llama_index.postprocessor.types import BaseNodePostprocessor
 from llama_index.llms import LangChainLLM
 from llama_index.node_parser import SimpleNodeParser
 from llama_index.query_engine import RetrieverQueryEngine
 from llama_index.response.schema import StreamingResponse, Response
 from llama_index.schema import MetadataMode
-from llama_index.utils import globals_helper
+from llama_index.utils import globals_helper, get_tokenizer
 from llama_index.vector_stores import MilvusVectorStore, SimpleVectorStore
 
 from chain_server import configuration
-# from chain_server.trt_llm import TensorRTLLM
 
 if TYPE_CHECKING:
     from llama_index.indices.base_retriever import BaseRetriever
@@ -68,18 +67,19 @@ LLAMA_RAG_TEMPLATE = (
 class LimitRetrievedNodesLength(BaseNodePostprocessor):
     """Llama Index chain filter to limit token lengths."""
 
-    def postprocess_nodes(
-        self, nodes: List["NodeWithScore"], query_bundle: Optional["QueryBundle"] = None
+    def _postprocess_nodes(
+        self, nodes: List["NodeWithScore"] = [], query_bundle: Optional["QueryBundle"] = None
     ) -> List["NodeWithScore"]:
         """Filter function."""
         included_nodes = []
         current_length = 0
         limit = DEFAULT_MAX_CONTEXT
+        tokenizer = get_tokenizer()
 
         for node in nodes:
             current_length += len(
-                globals_helper.tokenizer(
-                    node.node.get_content(metadata_mode=MetadataMode.LLM)
+                tokenizer(
+                    node.get_content(metadata_mode=MetadataMode.LLM)
                 )
             )
             if current_length > limit:
@@ -254,11 +254,6 @@ def ingest_docs(data_dir: str, filename: str) -> None:
 
     index = get_vector_index()
 
-    text_splitter = SentenceTransformersTokenTextSplitter(
-        model_name=TEXT_SPLITTER_MODEL,
-        chunk_size=TEXT_SPLITTER_CHUNCK_SIZE,
-        chunk_overlap=TEXT_SPLITTER_CHUNCK_OVERLAP,
-    )
-    node_parser = SimpleNodeParser.from_defaults(text_splitter=text_splitter)
+    node_parser = SimpleNodeParser.from_defaults()
     nodes = node_parser.get_nodes_from_documents(documents)
     index.insert_nodes(nodes)

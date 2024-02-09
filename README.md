@@ -98,6 +98,9 @@ Once you are done developing within the project, you can start the rag server an
 
 On Desktop, simply run the `rag-server` application. This application may take a few moments to spin up properly. 
 
+### Troubleshooting
+This process starts up an API server, an inference server for local inference, and a Milvus vector database, which may take some time to spin up properly. Because of the way AI Workbench handles application timeouts, you may sometimes see an "Error Starting Rag-Server" message. In reality, the RAG server application may still be in the process of spinning up the Vector Database on the underlying container and may have timed out on the AI Workbench client. To resolve this, simply wait a few moments and press ``[CTRL] + r`` to refresh the application status. If all components are spun up properly, you will see the "Rag-server" spun up successfully. 
+
 ## Step 4: Index Documents
 There are two ways to get documents into this project. The first is to drag and drop them into the `data/documents` directory in the project. These files will not be committed or synced and only indexed locally.
 
@@ -148,7 +151,7 @@ The A100-80GB has 80GB of VRAM, so we can run the 7b model locally and embedding
 - `MODEL_ID`: meta-llama/Llama-2-7b-chat-hf
 
 ## Tested On
-This notebook has been tested with an NVIDIA A100-80gb GPU and the following version of NVIDIA AI Workbench: ```nvwb 0.13.2 (internal; linux; amd64; go1.21.3; Sat Dec 23 17:47:46 UTC 2023)```
+This notebook has been tested with an NVIDIA A100-80gb GPU and the following version of NVIDIA AI Workbench: ```nvwb 0.13.14 (stable; linux; amd64; go1.21.3; Wed Jan 10 20:09:13 UTC 2024)```
 
 ## License
 This NVIDIA AI Workbench example project is under the [Apache 2.0 License](https://github.com/NVIDIA/workbench-example-local-rag/blob/main/LICENSE.txt)

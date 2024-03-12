@@ -1,4 +1,5 @@
 """This module contains the chatui gui for having a conversation."""
+
 import functools
 import logging
 from typing import Any, Dict, List, Tuple, Union
@@ -10,7 +11,7 @@ from chatui import assets, chat_client
 _LOGGER = logging.getLogger(__name__)
 PATH = "/"
 TITLE = "Converse"
-OUTPUT_TOKENS = 250
+OUTPUT_TOKENS = 1000
 MAX_DOCS = 5
 
 _LOCAL_CSS = """
@@ -80,10 +81,14 @@ def build_page(client: chat_client.ChatClient) -> gr.Blocks:
         # form actions
         _my_build_stream = functools.partial(_stream_predict, client)
         msg.submit(
-            _my_build_stream, [kb_checkbox, msg, chatbot], [msg, chatbot, context]
+            _my_build_stream,
+            [kb_checkbox, msg, chatbot],
+            [msg, chatbot, context],
         )
         submit_btn.click(
-            _my_build_stream, [kb_checkbox, msg, chatbot], [msg, chatbot, context]
+            _my_build_stream,
+            [kb_checkbox, msg, chatbot],
+            [msg, chatbot, context],
         )
 
     page.queue()
@@ -106,7 +111,9 @@ def _stream_predict(
     documents: Union[None, List[Dict[str, Union[str, float]]]] = None
     if use_knowledge_base:
         documents = client.search(question)
+        print(f"Document search results: {documents}")
 
     for chunk in client.predict(question, use_knowledge_base, OUTPUT_TOKENS):
         chunks += chunk
+        # yield "", documents
         yield "", chat_history + [[question, chunks]], documents

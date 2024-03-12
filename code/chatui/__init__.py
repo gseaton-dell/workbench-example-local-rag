@@ -11,11 +11,9 @@ import typing
 if typing.TYPE_CHECKING:
     from chatui.api import APIServer
 
-
 _LOG_FMT = f"[{os.getpid()}] %(asctime)15s [%(levelname)7s] - %(name)s - %(message)s"
 _LOG_DATE_FMT = "%b %d %H:%M:%S"
 _LOGGER = logging.getLogger(__name__)
-
 
 def bootstrap_logging(verbosity: int = 0) -> None:
     """Configure Python's logger according to the given verbosity level.

@@ -1,15 +1,16 @@
 """The API client for the langchain-esque service."""
 import logging
+
 import mimetypes
 import typing
 
 import requests
 
+# logging = logging.getLogger(__name__)
 _LOGGER = logging.getLogger(__name__)
 
-
 class ChatClient:
-    """A client for connecting the the lanchain-esque service."""
+    """A client for connecting to the lanchain-esque service."""
 
     def __init__(self, server_url: str, model_name: str) -> None:
         """Initialize the client."""
@@ -29,9 +30,11 @@ class ChatClient:
         data = {"content": prompt, "num_docs": 4}
         headers = {"accept": "application/json", "Content-Type": "application/json"}
         url = f"{self.server_url}/documentSearch"
-        _LOGGER.debug(
+        logging.debug(
             "looking up documents - %s", str({"server_url": url, "post_data": data})
         )
+        msg = str({"server_url": url, "post_data": data})
+        print(f"making inference request - {msg}")
 
         with requests.post(url, headers=headers, json=data, timeout=30) as req:
             response = req.json()
@@ -50,11 +53,11 @@ class ChatClient:
             "num_tokens": num_tokens,
         }
         url = f"{self.server_url}/generate"
-        _LOGGER.info(
+        logging.info(
             "making inference request - %s", str({"server_url": url, "post_data": data})
         )
         msg = str({"server_url": url, "post_data": data})
-        print(f"making inference request - {msg}")
+        print(f"making inference request - {msg} with context: {data['context']}")
 
         with requests.post(url, stream=True, json=data, timeout=10) as req:
             for chunk in req.iter_content(16):
@@ -72,7 +75,7 @@ class ChatClient:
             # pylint: disable-next=consider-using-with # with pattern is not intuitive here
             files = {"file": (fpath, open(fpath, "rb"), mime_type)}
 
-            _LOGGER.debug(
+            logging.debug(
                 "uploading file - %s",
                 str({"server_url": url, "file": fpath}),
             )

@@ -1,4 +1,5 @@
 """LLM Chains for executing Retrival Augmented Generation."""
+
 import base64
 import os
 from functools import lru_cache
@@ -14,6 +15,7 @@ from langchain.text_splitter import SentenceTransformersTokenTextSplitter
 from llama_index.embeddings import LangchainEmbedding
 from llama_index import (
     Prompt,
+    PromptHelper,
     ServiceContext,
     VectorStoreIndex,
     download_loader,
@@ -21,12 +23,14 @@ from llama_index import (
 )
 from llama_index.postprocessor.types import BaseNodePostprocessor
 from llama_index.llms import LangChainLLM
-from llama_index.node_parser import SimpleNodeParser
+from llama_index.node_parser import LangchainNodeParser, SimpleNodeParser
 from llama_index.query_engine import RetrieverQueryEngine
 from llama_index.response.schema import StreamingResponse, Response
 from llama_index.schema import MetadataMode
 from llama_index.utils import globals_helper, get_tokenizer
 from llama_index.vector_stores import MilvusVectorStore, SimpleVectorStore
+
+# from llama_index.core.retrievers import VectorIndexRetriever
 
 from chain_server import configuration
 
@@ -68,7 +72,10 @@ class LimitRetrievedNodesLength(BaseNodePostprocessor):
     """Llama Index chain filter to limit token lengths."""
 
     def _postprocess_nodes(
-        self, nodes: List["NodeWithScore"] = [], query_bundle: Optional["QueryBundle"] = None
+        # self, nodes: List["NodeWithScore"], query_bundle: Optional["QueryBundle"] = None
+        self,
+        nodes: List["NodeWithScore"] = [],
+        query_bundle: Optional["QueryBundle"] = None,
     ) -> List["NodeWithScore"]:
         """Filter function."""
         included_nodes = []
@@ -78,14 +85,15 @@ class LimitRetrievedNodesLength(BaseNodePostprocessor):
 
         for node in nodes:
             current_length += len(
-                tokenizer(
-                    node.get_content(metadata_mode=MetadataMode.LLM)
-                )
+                # globals_helper.tokenizer(
+                #     node.node.get_content(metadata_mode=MetadataMode.LLM)
+                tokenizer(node.get_content(metadata_mode=MetadataMode.LLM))
             )
             if current_length > limit:
                 break
             included_nodes.append(node)
 
+        print(f"Filtered nodes: {included_nodes}")
         return included_nodes
 
 
@@ -112,7 +120,7 @@ def get_llm() -> LangChainLLM:
         typical_p=0.95,
         temperature=0.7,
         repetition_penalty=1.03,
-        streaming=True
+        streaming=True,
     )
 
     return LangChainLLM(llm=llm_local)
@@ -122,9 +130,10 @@ def get_llm() -> LangChainLLM:
 def get_embedding_model() -> LangchainEmbedding:
     """Create the embedding model."""
     model_kwargs = {"device": "cpu"}
-    device_str = os.environ.get('EMBEDDING_DEVICE', "cuda:1")
+    device_str = os.environ.get("EMBEDDING_DEVICE", "cuda:1")
     if torch.cuda.is_available():
         model_kwargs["device"] = device_str
+    # print(f"Embedding model device: {model_kwargs['device']}")
 
     encode_kwargs = {"normalize_embeddings": False}
     hf_embeddings = HuggingFaceEmbeddings(
@@ -138,11 +147,34 @@ def get_embedding_model() -> LangchainEmbedding:
 
 
 @lru_cache
+def get_node_parser() -> LangchainNodeParser:
+    """Create the node parser."""
+    text_splitter = SentenceTransformersTokenTextSplitter(
+        model_name=TEXT_SPLITTER_MODEL,
+        chunk_size=TEXT_SPLITTER_CHUNCK_SIZE,
+        chunk_overlap=TEXT_SPLITTER_CHUNCK_OVERLAP,
+    )
+    return LangchainNodeParser(text_splitter)
+
+
+@lru_cache
+def get_prompt_helper() -> PromptHelper:
+    """Create the prompt helper."""
+    prompt_helper = PromptHelper(
+        context_window=4096,
+        num_output=256,
+        chunk_overlap_ratio=0.1,
+        chunk_size_limit=None,
+    )
+    return prompt_helper
+
+
+@lru_cache
 def get_vector_index() -> VectorStoreIndex:
     """Create the vector db index."""
     config = get_config()
     vector_store = MilvusVectorStore(uri=config.milvus, dim=1024, overwrite=False)
-    #vector_store = SimpleVectorStore()
+    # vector_store = SimpleVectorStore()
     return VectorStoreIndex.from_vector_store(vector_store)
 
 
@@ -150,6 +182,7 @@ def get_vector_index() -> VectorStoreIndex:
 def get_doc_retriever(num_nodes: int = 4) -> "BaseRetriever":
     """Create the document retriever."""
     index = get_vector_index()
+    # print(f"Doc Retriever: {index}")
     return index.as_retriever(similarity_top_k=num_nodes)
 
 
@@ -157,7 +190,10 @@ def get_doc_retriever(num_nodes: int = 4) -> "BaseRetriever":
 def set_service_context() -> None:
     """Set the global service context."""
     service_context = ServiceContext.from_defaults(
-        llm=get_llm(), embed_model=get_embedding_model()
+        llm=get_llm(),
+        embed_model=get_embedding_model(),
+        node_parser=get_node_parser(),
+        prompt_helper=get_prompt_helper(),
     )
     set_global_service_context(service_context)
 
@@ -171,7 +207,8 @@ def llm_chain(
     response = get_llm().complete(prompt, max_new_tokens=num_tokens)
 
     for i in range(0, len(response.text), 20):
-        yield response.text[i:i + 20]
+        yield response.text[i : i + 20]
+
 
 def llm_chain_streaming(
     context: str, question: str, num_tokens: int
@@ -183,6 +220,7 @@ def llm_chain_streaming(
     response = get_llm().stream_complete(prompt, max_new_tokens=num_tokens)
     gen_response = (resp.delta for resp in response)
     return gen_response
+
 
 def rag_chain(prompt: str, num_tokens: int) -> "TokenGen":
     """Execute a Retrieval Augmented Generation chain using the components defined above."""
@@ -201,13 +239,16 @@ def rag_chain(prompt: str, num_tokens: int) -> "TokenGen":
     # Properly handle an empty response
     if isinstance(response, Response):
         for i in range(0, len(response.response), 20):
-            yield response.response[i:i + 20]
+            yield response.response[i : i + 20]
     return Response([]).response  # type: ignore
+
 
 def rag_chain_streaming(prompt: str, num_tokens: int) -> "TokenGen":
     """Execute a Retrieval Augmented Generation chain using the components defined above."""
     set_service_context()
     get_llm().llm.max_new_tokens = num_tokens  # type: ignore
+    # print(f"rag_chain_streaming\n")
+    # print(f"LLM max tokens: {get_llm().llm.max_new_tokens}")
     retriever = get_doc_retriever(num_nodes=4)
     qa_template = Prompt(LLAMA_RAG_TEMPLATE)
     query_engine = RetrieverQueryEngine.from_args(
@@ -216,12 +257,14 @@ def rag_chain_streaming(prompt: str, num_tokens: int) -> "TokenGen":
         node_postprocessors=[LimitRetrievedNodesLength()],
         streaming=True,
     )
+    # print(f"Rag Prompt: {prompt}\n")
     response = query_engine.query(prompt)
 
     # Properly handle an empty response
     if isinstance(response, StreamingResponse):
         return response.response_gen
     return StreamingResponse([]).response_gen  # type: ignore
+
 
 def is_base64_encoded(s: str) -> bool:
     """Check if a string is base64 encoded."""
@@ -254,6 +297,8 @@ def ingest_docs(data_dir: str, filename: str) -> None:
 
     index = get_vector_index()
 
-    node_parser = SimpleNodeParser.from_defaults()
+    # node_parser = SimpleNodeParser.from_defaults()
+    node_parser = get_node_parser()
     nodes = node_parser.get_nodes_from_documents(documents)
+    # print(f"Nodes: {len(nodes)}")
     index.insert_nodes(nodes)

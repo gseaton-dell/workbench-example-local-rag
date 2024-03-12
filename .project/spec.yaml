@@ -24,7 +24,7 @@ environment:
     name: TGI
     supported_architectures:
     - amd64
-    cuda_version: "11.8"
+    cuda_version: "12.3"
     description: The huggingface text-generation-interface base container
     entrypoint_script: ""
     labels:
@@ -93,7 +93,7 @@ execution:
     type: custom
     class: webapp
     start_command: cd /project/code/ && PROXY_PREFIX=$PROXY_PREFIX /opt/conda/envs/ui-env/bin/python3
-      -m chatui
+      -m chatui > /var/log/chatui.log 2>&1
     health_check_command: curl -f "http://localhost:8080/"
     stop_command: pkill -f '^/opt/conda/envs/ui-env/bin/python3 -m chatui'
     user_msg: ""
@@ -116,11 +116,19 @@ execution:
     target: /project/
     description: Project directory
     options: rw
-  - type: volume
+  - type: host
     target: /data/
-    description: Hugging Face hub cache dir
+    description: ""
     options: ""
-  - type: volume
+  - type: host
     target: /mnt/milvus/
-    description: Volume for storing the milvus database
+    description: ""
+    options: ""
+  - type: host
+    target: /mnt/docs/pdfs-dell-infohub/
+    description: ""
+    options: ""
+  - type: host
+    target: /var/log/local-rag/
+    description: ""
     options: ""

@@ -1,4 +1,5 @@
 """The definition of the Llama Index chain server."""
+
 import base64
 import os
 import shutil
@@ -26,7 +27,8 @@ class Prompt(BaseModel):
     question: str
     context: str
     use_knowledge_base: bool = True
-    num_tokens: int = 50
+    num_tokens: int = 500
+    # num_tokens: int = 50
 
 
 class DocumentSearch(BaseModel):
@@ -38,9 +40,7 @@ class DocumentSearch(BaseModel):
 
 @app.get("/health")
 async def health() -> JSONResponse:
-      return JSONResponse(
-        content={"status": "OK"}, status_code=200
-    )
+    return JSONResponse(content={"status": "OK"}, status_code=200)
 
 
 @app.post("/uploadDocument")
@@ -66,16 +66,20 @@ async def upload_document(file: UploadFile = File(...)) -> JSONResponse:
         content={"message": "File uploaded successfully"}, status_code=200
     )
 
+
 @app.post("/generate")
 async def generate_answer(prompt: Prompt) -> StreamingResponse:
     """Generate and stream the response to the provided prompt."""
 
     if prompt.use_knowledge_base:
+        # print(f"Using knowledge base to generate_answer\n")
         generator = chains.rag_chain_streaming(prompt.question, prompt.num_tokens)
-        return StreamingResponse(generator, media_type="text/event-stream")  
+        return StreamingResponse(generator, media_type="text/event-stream")
 
-    generator = chains.llm_chain_streaming(prompt.context, prompt.question, prompt.num_tokens)
-    return StreamingResponse(generator, media_type="text/event-stream")     
+    generator = chains.llm_chain_streaming(
+        prompt.context, prompt.question, prompt.num_tokens
+    )
+    return StreamingResponse(generator, media_type="text/event-stream")
 
 
 @app.post("/documentSearch")
@@ -83,6 +87,8 @@ def document_search(data: DocumentSearch) -> List[Dict[str, Any]]:
     """Search for the most relevant documents for the given search parameters."""
     retriever = chains.get_doc_retriever(num_nodes=data.num_docs)
     nodes = retriever.retrieve(data.content)
+    # print(f"Number of document node results: {len(nodes)}")
+    # print(f"Document node results: {nodes}\n")
     output = []
     for node in nodes:
         file_name = nodes[0].metadata["filename"]
@@ -90,4 +96,5 @@ def document_search(data: DocumentSearch) -> List[Dict[str, Any]]:
         entry = {"score": node.score, "source": decoded_filename, "content": node.text}
         output.append(entry)
 
+    # print(f"documentSearch results: {output}\n")
     return output

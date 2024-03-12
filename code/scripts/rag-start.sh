@@ -2,17 +2,17 @@
 
 # Start milvus
 echo "Starting Milvus"
-/opt/conda/bin/milvus-server --data /mnt/milvus/ &
+/opt/conda/bin/milvus-server --data /mnt/milvus/ > /var/log/local-rag/milvus.log 2>&1 &
 pid1=$!
 
 # Start API
 echo "Starting API"
-cd /project/code/ && /opt/conda/envs/api-env/bin/python -m uvicorn chain_server.server:app --port=8000 --host='0.0.0.0' &
+cd /project/code/ && /opt/conda/envs/api-env/bin/python -m uvicorn chain_server.server:app --port=8000 --host='0.0.0.0' > /var/log/local-rag/api.log 2>&1 &
 pid2=$!
 
 # Start Inference Server
 echo "Starting Inference Server"
-text-generation-launcher --model-id $MODEL_ID --port 9090 &
+text-generation-launcher --model-id $MODEL_ID --port 9090 > /var/log/local-rag/inference.log 2>&1 &
 pid3=$!
 
 

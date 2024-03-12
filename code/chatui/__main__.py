@@ -6,8 +6,15 @@ The functions in this module are responsible for bootstrapping then executing th
 import argparse
 import os
 import sys
+import logging
 
 import uvicorn
+
+from . import bootstrap_logging
+
+_LOG_FMT = f"[{os.getpid()}] %(asctime)15s [%(levelname)7s] - %(name)s - %(message)s"
+_LOG_DATE_FMT = "%b %d %H:%M:%S"
+_LOGGER = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -105,12 +112,13 @@ if __name__ == "__main__":
     if not config:
         sys.exit(1)
 
+    # configure logging
+    bootstrap_logging(2)
+
     # connect to other services
     api_url = f"{config.server_url}:{config.server_port}"
     print(api_url)
-    client = chat_client.ChatClient(
-       api_url, config.model_name
-    )
+    client = chat_client.ChatClient(api_url, config.model_name)
     proxy_prefix = os.environ.get("PROXY_PREFIX")
     blocks = pages.converse.build_page(client)
     blocks.queue(max_size=10)

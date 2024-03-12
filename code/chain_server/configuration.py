@@ -4,7 +4,7 @@ from chain_server.configuration_wizard import ConfigWizard, configclass, configf
 
 @configclass
 class MilvusConfig(ConfigWizard):
-    """Configuration class for the Weaviate connection.
+    """Configuration class for the Milvus connection.
 
     :cvar url: URL of Milvus DB
     """
